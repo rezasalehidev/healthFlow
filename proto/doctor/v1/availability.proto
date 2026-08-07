@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package healthflow.doctor.v1;
+
+service DoctorAvailability {
+  rpc CheckSlot (CheckSlotRequest) returns (CheckSlotResponse);
+}
+
+message CheckSlotRequest {
+  string doctor_id = 1;
+  string starts_at = 2; // ISO-8601
+  string ends_at = 3;   // ISO-8601
+}
+
+message CheckSlotResponse {
+  bool available = 1;
+  string reason = 2;
+}

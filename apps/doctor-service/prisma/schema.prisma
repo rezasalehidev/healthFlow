@@ -1,0 +1,45 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["doctor"]
+}
+
+model Doctor {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @unique @map("user_id") @db.Uuid
+  firstName      String   @map("first_name")
+  lastName       String   @map("last_name")
+  specialization String
+  bio            String?
+  licenseNumber  String   @unique @map("license_number")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  schedules DoctorSchedule[]
+
+  @@index([specialization])
+  @@map("doctors")
+  @@schema("doctor")
+}
+
+model DoctorSchedule {
+  id        String @id @default(uuid()) @db.Uuid
+  doctorId  String @map("doctor_id") @db.Uuid
+  /// 0 = Sunday … 6 = Saturday
+  dayOfWeek Int    @map("day_of_week")
+  /// HH:mm in doctor's local clinic timezone (demo: treat as UTC wall clock)
+  startTime String @map("start_time")
+  endTime   String @map("end_time")
+
+  doctor Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@unique([doctorId, dayOfWeek, startTime])
+  @@index([doctorId, dayOfWeek])
+  @@map("doctor_schedules")
+  @@schema("doctor")
+}

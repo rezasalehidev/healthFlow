@@ -1,0 +1,28 @@
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+.env
+.env.local
+.env.*.local
+*.log
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+tmp/
+.turbo/
+*.pem
+
+# Accidental tsc emit next to sources
+**/src/**/*.js
+**/src/**/*.js.map
+**/src/**/*.d.ts
+**/src/**/*.d.ts.map
+
+# Prisma generated clients
+**/src/generated/
+
+# Local learning docs (not committed)
+docs/

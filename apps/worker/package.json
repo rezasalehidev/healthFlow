@@ -1,0 +1,10 @@
+{
+  "name": "@healthflow/worker",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "echo 'worker scaffold — implement later' && mkdir -p dist && echo 'console.log(\"worker placeholder\")' > dist/main.js",
+    "typecheck": "echo 'skip'",
+    "test": "echo 'skip'"
+  }
+}

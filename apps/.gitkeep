@@ -1,0 +1,3 @@
+# NestJS application packages will be added in later phases:
+# api-gateway, auth-service, patient-service, doctor-service,
+# appointment-service, notification-service, worker

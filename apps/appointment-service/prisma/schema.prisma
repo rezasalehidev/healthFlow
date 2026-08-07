@@ -1,0 +1,42 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["appointment"]
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  NO_SHOW
+
+  @@schema("appointment")
+}
+
+model Appointment {
+  id         String            @id @default(uuid()) @db.Uuid
+  patientId  String            @map("patient_id") @db.Uuid
+  doctorId   String            @map("doctor_id") @db.Uuid
+  startsAt   DateTime          @map("starts_at")
+  endsAt     DateTime          @map("ends_at")
+  status     AppointmentStatus @default(PENDING)
+  /// Unique while active; cleared on cancel so the slot can be rebooked.
+  slotKey    String?           @unique @map("slot_key")
+  notes      String?
+  version    Int               @default(1)
+  createdAt  DateTime          @default(now()) @map("created_at")
+  updatedAt  DateTime          @updatedAt @map("updated_at")
+  createdBy  String            @map("created_by") @db.Uuid
+
+  @@index([doctorId, startsAt])
+  @@index([patientId, startsAt])
+  @@index([status, startsAt])
+  @@map("appointments")
+  @@schema("appointment")
+}

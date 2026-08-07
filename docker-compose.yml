@@ -1,0 +1,262 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: healthflow-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-healthflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-healthflow}
+      POSTGRES_DB: ${POSTGRES_DB:-healthflow}
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-healthflow} -d ${POSTGRES_DB:-healthflow}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongodb:
+    image: mongo:7
+    container_name: healthflow-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-healthflow}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-healthflow}
+      MONGO_INITDB_DATABASE: healthflow
+    ports:
+      - '${MONGODB_PORT:-27017}:27017'
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ['CMD', 'mongosh', '--eval', "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: healthflow-redis
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes']
+    ports:
+      - '${REDIS_PORT:-6379}:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: healthflow-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-healthflow}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-healthflow}
+    ports:
+      - '${RABBITMQ_PORT:-5672}:5672'
+      - '${RABBITMQ_MANAGEMENT_PORT:-15672}:15672'
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.app
+      args:
+        APP_NAME: auth-service
+    container_name: healthflow-auth-service
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PORT: 3001
+      DATABASE_URL: postgresql://${POSTGRES_USER:-healthflow}:${POSTGRES_PASSWORD:-healthflow}@postgres:5432/${POSTGRES_DB:-healthflow}?schema=auth
+    ports:
+      - '${AUTH_SERVICE_PORT:-3001}:3001'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 25s
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.app
+      args:
+        APP_NAME: api-gateway
+    container_name: healthflow-api-gateway
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PORT: 3000
+      AUTH_SERVICE_URL: http://auth-service:3001
+      PATIENT_SERVICE_URL: http://patient-service:3002
+      DOCTOR_SERVICE_URL: http://doctor-service:3003
+      APPOINTMENT_SERVICE_URL: http://appointment-service:3004
+    ports:
+      - '${GATEWAY_PORT:-3000}:3000'
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      patient-service:
+        condition: service_started
+      doctor-service:
+        condition: service_started
+      appointment-service:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 25s
+
+  patient-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.app
+      args:
+        APP_NAME: patient-service
+    container_name: healthflow-patient-service
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PORT: 3002
+      DATABASE_URL: postgresql://${POSTGRES_USER:-healthflow}:${POSTGRES_PASSWORD:-healthflow}@postgres:5432/${POSTGRES_DB:-healthflow}?schema=patient
+    ports:
+      - '${PATIENT_SERVICE_PORT:-3002}:3002'
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  doctor-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.app
+      args:
+        APP_NAME: doctor-service
+    container_name: healthflow-doctor-service
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PORT: 3003
+      DATABASE_URL: postgresql://${POSTGRES_USER:-healthflow}:${POSTGRES_PASSWORD:-healthflow}@postgres:5432/${POSTGRES_DB:-healthflow}?schema=doctor
+      REDIS_URL: redis://redis:6379
+      DOCTOR_GRPC_BIND: 0.0.0.0:50051
+    ports:
+      - '${DOCTOR_SERVICE_PORT:-3003}:3003'
+      - '${DOCTOR_GRPC_PORT:-50051}:50051'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  appointment-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.app
+      args:
+        APP_NAME: appointment-service
+    container_name: healthflow-appointment-service
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PORT: 3004
+      DATABASE_URL: postgresql://${POSTGRES_USER:-healthflow}:${POSTGRES_PASSWORD:-healthflow}@postgres:5432/${POSTGRES_DB:-healthflow}?schema=appointment
+      REDIS_URL: redis://redis:6379
+      DOCTOR_GRPC_URL: doctor-service:50051
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-healthflow}:${RABBITMQ_PASSWORD:-healthflow}@rabbitmq:5672
+    ports:
+      - '${APPOINTMENT_SERVICE_PORT:-3004}:3004'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      doctor-service:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.app
+      args:
+        APP_NAME: notification-service
+    container_name: healthflow-notification-service
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PORT: 3005
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-healthflow}:${RABBITMQ_PASSWORD:-healthflow}@rabbitmq:5672
+    ports:
+      - '${NOTIFICATION_SERVICE_PORT:-3005}:3005'
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.app
+      args:
+        APP_NAME: worker
+    container_name: healthflow-worker
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PORT: 3006
+      DATABASE_URL: postgresql://${POSTGRES_USER:-healthflow}:${POSTGRES_PASSWORD:-healthflow}@postgres:5432/${POSTGRES_DB:-healthflow}?schema=auth
+      MONGODB_URI: mongodb://${MONGO_ROOT_USER:-healthflow}:${MONGO_ROOT_PASSWORD:-healthflow}@mongodb:27017/healthflow?authSource=admin
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-healthflow}:${RABBITMQ_PASSWORD:-healthflow}@rabbitmq:5672
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    profiles: ['full']
+
+volumes:
+  postgres_data:
+  mongodb_data:
+  redis_data:
+  rabbitmq_data:
+
+networks:
+  default:
+    name: healthflow-net
