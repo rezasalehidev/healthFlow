@@ -109,11 +109,7 @@ export class AppointmentsService {
         type: 'appointment.created',
         occurredAt: new Date().toISOString(),
         producer: 'appointment-service',
-        payload: {
-          appointmentId: created.id,
-          doctorId: created.doctorId,
-          patientId: created.patientId,
-        },
+        payload: this.eventPayload(created),
       });
 
       return this.toPublic(created);
@@ -154,7 +150,7 @@ export class AppointmentsService {
       type: 'appointment.confirmed',
       occurredAt: new Date().toISOString(),
       producer: 'appointment-service',
-      payload: { appointmentId: updated.id },
+      payload: this.eventPayload(updated),
     });
 
     return this.toPublic(updated);
@@ -187,7 +183,7 @@ export class AppointmentsService {
       type: 'appointment.cancelled',
       occurredAt: new Date().toISOString(),
       producer: 'appointment-service',
-      payload: { appointmentId: updated.id },
+      payload: this.eventPayload(updated),
     });
 
     return this.toPublic(updated);
@@ -270,7 +266,7 @@ export class AppointmentsService {
       type: 'appointment.rescheduled',
       occurredAt: new Date().toISOString(),
       producer: 'appointment-service',
-      payload: { appointmentId: outcome.result.id, startsAt: startsAt.toISOString() },
+      payload: this.eventPayload(outcome.result),
     });
 
     return this.toPublic(outcome.result);
@@ -305,6 +301,24 @@ export class AppointmentsService {
 
   private slotKey(doctorId: string, startsAt: Date): string {
     return `${doctorId}:${startsAt.toISOString()}`;
+  }
+
+  private eventPayload(row: {
+    id: string;
+    patientId: string;
+    doctorId: string;
+    startsAt: Date;
+    endsAt: Date;
+    status: AppointmentStatus;
+  }): Record<string, unknown> {
+    return {
+      appointmentId: row.id,
+      patientId: row.patientId,
+      doctorId: row.doctorId,
+      startsAt: row.startsAt.toISOString(),
+      endsAt: row.endsAt.toISOString(),
+      status: row.status,
+    };
   }
 
   private assertValidRange(startsAt: Date, endsAt: Date): void {

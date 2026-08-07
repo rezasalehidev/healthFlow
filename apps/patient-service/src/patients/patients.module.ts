@@ -2,8 +2,14 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
+import { MessagingModule } from '@healthflow/messaging';
 import { JwtStrategy } from '../auth/jwt.strategy';
 import { RolesGuard } from '../auth/roles.guard';
+import { ClinicalEventPublisher } from '../events/clinical-event.publisher';
+import { MedicalRecordsController } from '../medical-records/medical-records.controller';
+import { MedicalRecordsService } from '../medical-records/medical-records.service';
+import { PrescriptionsController } from '../prescriptions/prescriptions.controller';
+import { PrescriptionsService } from '../prescriptions/prescriptions.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { PatientsController } from './patients.controller';
 import { PatientsService } from './patients.service';
@@ -11,6 +17,7 @@ import { PatientsService } from './patients.service';
 @Module({
   imports: [
     PrismaModule,
+    MessagingModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -20,7 +27,14 @@ import { PatientsService } from './patients.service';
       }),
     }),
   ],
-  controllers: [PatientsController],
-  providers: [PatientsService, JwtStrategy, RolesGuard],
+  controllers: [PatientsController, MedicalRecordsController, PrescriptionsController],
+  providers: [
+    PatientsService,
+    MedicalRecordsService,
+    PrescriptionsService,
+    ClinicalEventPublisher,
+    JwtStrategy,
+    RolesGuard,
+  ],
 })
 export class PatientsModule {}

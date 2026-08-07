@@ -2,9 +2,31 @@
   "name": "@healthflow/worker",
   "version": "0.1.0",
   "private": true,
+  "description": "HealthFlow background worker — audit log sink + appointment reminders",
   "scripts": {
-    "build": "echo 'worker scaffold — implement later' && mkdir -p dist && echo 'console.log(\"worker placeholder\")' > dist/main.js",
-    "typecheck": "echo 'skip'",
-    "test": "echo 'skip'"
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/main.js",
+    "start:dev": "ts-node -r tsconfig-paths/register src/main.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "jest --config jest.config.ts"
+  },
+  "dependencies": {
+    "@healthflow/common": "workspace:*",
+    "@healthflow/messaging": "workspace:*",
+    "@nestjs/common": "^10.4.15",
+    "@nestjs/config": "^3.3.0",
+    "@nestjs/core": "^10.4.15",
+    "@nestjs/mongoose": "^10.1.0",
+    "@nestjs/platform-express": "^10.4.15",
+    "@nestjs/schedule": "^4.1.2",
+    "amqplib": "^0.10.5",
+    "mongoose": "^8.9.3",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1"
+  },
+  "devDependencies": {
+    "@types/amqplib": "^0.10.6",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.7.2"
   }
 }

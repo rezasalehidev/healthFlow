@@ -154,10 +154,13 @@ services:
     environment:
       PORT: 3002
       DATABASE_URL: postgresql://${POSTGRES_USER:-healthflow}:${POSTGRES_PASSWORD:-healthflow}@postgres:5432/${POSTGRES_DB:-healthflow}?schema=patient
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-healthflow}:${RABBITMQ_PASSWORD:-healthflow}@rabbitmq:5672
     ports:
       - '${PATIENT_SERVICE_PORT:-3002}:3002'
     depends_on:
       postgres:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
 
   doctor-service:
@@ -239,12 +242,12 @@ services:
     env_file: .env
     environment:
       PORT: 3006
-      DATABASE_URL: postgresql://${POSTGRES_USER:-healthflow}:${POSTGRES_PASSWORD:-healthflow}@postgres:5432/${POSTGRES_DB:-healthflow}?schema=auth
       MONGODB_URI: mongodb://${MONGO_ROOT_USER:-healthflow}:${MONGO_ROOT_PASSWORD:-healthflow}@mongodb:27017/healthflow?authSource=admin
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-healthflow}:${RABBITMQ_PASSWORD:-healthflow}@rabbitmq:5672
+      REMINDER_OFFSETS_HOURS: ${REMINDER_OFFSETS_HOURS:-24,1}
+    ports:
+      - '${WORKER_PORT:-3006}:3006'
     depends_on:
-      postgres:
-        condition: service_healthy
       mongodb:
         condition: service_healthy
       rabbitmq:

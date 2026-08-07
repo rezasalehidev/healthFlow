@@ -51,6 +51,8 @@ export class EmailNotificationSimulator {
         return 'Appointment cancelled';
       case 'appointment.rescheduled':
         return 'Appointment rescheduled';
+      case 'appointment.reminder':
+        return 'Appointment reminder';
       case 'prescription.created':
         return 'New prescription available';
       case 'medical-record.created':

@@ -20,7 +20,60 @@ model Patient {
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
+  medicalRecords MedicalRecord[]
+  prescriptions  Prescription[]
+
   @@index([lastName, firstName])
   @@map("patients")
+  @@schema("patient")
+}
+
+model MedicalRecord {
+  id            String   @id @default(uuid()) @db.Uuid
+  patientId     String   @map("patient_id") @db.Uuid
+  doctorId      String   @map("doctor_id") @db.Uuid
+  title         String
+  notes         String
+  diagnosisCode String?  @map("diagnosis_code")
+  recordedAt    DateTime @default(now()) @map("recorded_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  patient       Patient        @relation(fields: [patientId], references: [id])
+  prescriptions Prescription[]
+
+  @@index([patientId, recordedAt])
+  @@index([doctorId, recordedAt])
+  @@map("medical_records")
+  @@schema("patient")
+}
+
+enum PrescriptionStatus {
+  ACTIVE
+  FULFILLED
+  CANCELLED
+
+  @@schema("patient")
+}
+
+model Prescription {
+  id              String             @id @default(uuid()) @db.Uuid
+  patientId       String             @map("patient_id") @db.Uuid
+  doctorId        String             @map("doctor_id") @db.Uuid
+  medicalRecordId String?            @map("medical_record_id") @db.Uuid
+  medication      String
+  dosage          String
+  instructions    String?
+  status          PrescriptionStatus @default(ACTIVE)
+  prescribedAt    DateTime           @default(now()) @map("prescribed_at")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+
+  patient       Patient        @relation(fields: [patientId], references: [id])
+  medicalRecord MedicalRecord? @relation(fields: [medicalRecordId], references: [id])
+
+  @@index([patientId, prescribedAt])
+  @@index([doctorId, prescribedAt])
+  @@map("prescriptions")
   @@schema("patient")
 }

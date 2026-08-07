@@ -8,7 +8,9 @@ import { RolesGuard } from './guards/roles.guard';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { AppointmentsProxyController } from '../appointments/appointments-proxy.controller';
 import { DoctorsProxyController } from '../doctors/doctors-proxy.controller';
+import { MedicalRecordsProxyController } from '../medical-records/medical-records-proxy.controller';
 import { PatientsProxyController } from '../patients/patients-proxy.controller';
+import { PrescriptionsProxyController } from '../prescriptions/prescriptions-proxy.controller';
 import { ProxyModule } from '../proxy/proxy.module';
 
 @Module({
@@ -27,6 +29,8 @@ import { ProxyModule } from '../proxy/proxy.module';
     AuthProxyController,
     DoctorsProxyController,
     PatientsProxyController,
+    MedicalRecordsProxyController,
+    PrescriptionsProxyController,
     AppointmentsProxyController,
   ],
   providers: [JwtStrategy, RolesGuard, PermissionsGuard],

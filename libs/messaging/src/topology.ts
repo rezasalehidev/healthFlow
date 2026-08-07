@@ -22,6 +22,7 @@ export const ROUTING_KEYS = {
   appointmentRescheduled: 'appointment.rescheduled',
   appointmentCompleted: 'appointment.completed',
   appointmentNoShow: 'appointment.no_show',
+  appointmentReminder: 'appointment.reminder',
   prescriptionCreated: 'prescription.created',
   medicalRecordCreated: 'medical-record.created',
   medicalRecordUpdated: 'medical-record.updated',
