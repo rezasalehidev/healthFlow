@@ -4,58 +4,34 @@ Production-oriented NestJS microservices backend (portfolio / interview project)
 
 ## Status
 
-Phases 0–10 complete: auth, gateway, doctor/patient, appointments (lock + gRPC), RabbitMQ notifications, WebSocket live updates, worker (Mongo audit + reminders), **medical records / prescriptions**, and **GitHub Actions CI**.
+Phases **0–12** complete: auth, gateway, doctor/patient, appointments (lock + gRPC), RabbitMQ notifications, WebSockets, worker (Mongo audit + reminders), medical records/prescriptions, CI, and **transactional outbox** for both appointments and clinical events — plus a **step-by-step learning guide**.
 
 ## Learn the project (start here)
 
-New to the codebase? Read the docs in order:
+Open the docs **in order**:
 
-**[docs/README.md](./docs/README.md)** — learning path from architecture → setup → request flows → WebSockets → worker → clinical data.
+**[docs/README.md](./docs/README.md)** → begin with **[docs/00-how-to-study.md](./docs/00-how-to-study.md)**
+
+That guide walks the whole codebase carefully: architecture → services → setup → request flows → worker → clinical data → outbox.
 
 ## CI
 
 Push / PR to `main` runs [`.github/workflows/ci.yml`](./.github/workflows/ci.yml): install → build libs → Prisma generate → lint → typecheck → unit tests → build.
 
-## Messaging topology
+## Reliable events (outbox)
+
+Appointment + patient mutations write `outbox_events` in the same DB transaction. Relays publish to RabbitMQ.
+
+See [docs/16-outbox.md](./docs/16-outbox.md).
+
+## Messaging (short)
 
 | Piece | Name |
 |-------|------|
-| Events exchange | `healthflow.events` (topic) |
-| Retry exchange | `healthflow.retry` (topic) |
-| DLQ exchange | `healthflow.dlq` (fanout) |
-| Requeue bridge | `healthflow.requeue` → `healthflow.notifications.requeue` |
-| Main queue | `healthflow.notifications` |
-| Retry TTL queues | `*.retry.5s` / `30s` / `120s` |
-| DLQ | `healthflow.notifications.dlq` |
-| Gateway WS queue | `healthflow.gateway.appointments.ws` (`appointment.*`) |
-| Audit queue | `healthflow.audit` (`#` → worker → Mongo) |
-
-## Clinical APIs (Phase 9)
-
-Via gateway (JWT + roles):
-
-- `POST/GET /api/v1/patients/:patientId/medical-records`
-- `GET/PATCH /api/v1/medical-records/:id`
-- `POST/GET /api/v1/patients/:patientId/prescriptions`
-- `GET /api/v1/prescriptions/:id`
-- `PATCH /api/v1/prescriptions/:id/status`
-
-Events: `medical-record.created|updated`, `prescription.created`.
-
-## Worker (Phase 8)
-
-- Consumes `healthflow.audit` → writes `audit_logs` in MongoDB
-- Plans / dispatches `appointment.reminder` (see `REMINDER_OFFSETS_HOURS`)
-
-```bash
-pnpm start:worker
-```
-
-## Realtime
-
-- Socket.IO namespace: `/appointments`
-- Auth: `auth.token` = access JWT
-- Event: `appointment.updated`
+| Events | `healthflow.events` |
+| Notifications | `healthflow.notifications` (+ retry / DLQ) |
+| Audit | `healthflow.audit` → worker |
+| Gateway WS | `healthflow.gateway.appointments.ws` |
 
 ## Setup
 
@@ -63,9 +39,8 @@ pnpm start:worker
 cp .env.example .env
 pnpm install
 pnpm build:common && pnpm build:redis && pnpm build:messaging
-pnpm build:patient && pnpm build:appointment && pnpm build:notification && pnpm build:gateway && pnpm build:worker
 pnpm test
 pnpm lint
 ```
 
-Full local stack: [docs/09-local-setup.md](./docs/09-local-setup.md).
+Full runbook: [docs/09-local-setup.md](./docs/09-local-setup.md).

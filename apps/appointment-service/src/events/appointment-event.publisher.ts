@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { EventPublisher } from '@healthflow/messaging';
+import { Prisma } from '../generated/prisma';
+import { PrismaService } from '../prisma/prisma.service';
 
 export type DomainEventType =
   | 'appointment.created'
@@ -18,35 +19,36 @@ export interface DomainEvent {
   payload: Record<string, unknown>;
 }
 
+type DbClient = PrismaService | Prisma.TransactionClient;
+
 /**
- * Publishes appointment domain events to RabbitMQ.
- * Failures are logged but do not roll back the booking (transactional outbox is the prod upgrade).
+ * Enqueues domain events into the transactional outbox (same DB tx as the mutation).
+ * A relay process publishes PENDING rows to RabbitMQ.
  */
 @Injectable()
 export class AppointmentEventPublisher {
   private readonly logger = new Logger(AppointmentEventPublisher.name);
   readonly published: DomainEvent[] = [];
 
-  constructor(private readonly events: EventPublisher) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  async publish(event: DomainEvent): Promise<void> {
-    this.published.push(event);
-    try {
-      await this.events.publish(event.type, {
-        type: event.type,
-        producer: event.producer,
-        payload: event.payload,
+  async publish(event: DomainEvent, tx?: Prisma.TransactionClient): Promise<void> {
+    const client: DbClient = tx ?? this.prisma;
+    await client.outboxEvent.create({
+      data: {
         eventId: event.eventId,
+        type: event.type,
+        routingKey: event.type,
+        payload: event.payload as Prisma.InputJsonValue,
         correlationId: event.correlationId,
-      });
-    } catch (error: unknown) {
-      this.logger.error({
-        message: 'Failed to publish domain event (booking already committed)',
-        type: event.type,
-        eventId: event.eventId,
-        error: error instanceof Error ? error.message : error,
-        hint: 'Use transactional outbox for at-least-once durability',
-      });
-    }
+        occurredAt: new Date(event.occurredAt),
+      },
+    });
+    this.published.push(event);
+    this.logger.log({
+      message: 'outbox enqueued',
+      type: event.type,
+      eventId: event.eventId,
+    });
   }
 }

@@ -49,22 +49,30 @@ export class PrescriptionsService {
       }
     }
 
-    const prescription = await this.prisma.prescription.create({
-      data: {
-        patientId,
-        doctorId: actor.sub,
-        medicalRecordId: dto.medicalRecordId,
-        medication: dto.medication,
-        dosage: dto.dosage,
-        instructions: dto.instructions,
-      },
-    });
+    const prescription = await this.prisma.$transaction(async (tx) => {
+      const row = await tx.prescription.create({
+        data: {
+          patientId,
+          doctorId: actor.sub,
+          medicalRecordId: dto.medicalRecordId,
+          medication: dto.medication,
+          dosage: dto.dosage,
+          instructions: dto.instructions,
+        },
+      });
 
-    await this.events.publish(ROUTING_KEYS.prescriptionCreated, {
-      prescriptionId: prescription.id,
-      patientId: prescription.patientId,
-      doctorId: prescription.doctorId,
-      medication: prescription.medication,
+      await this.events.publish(
+        ROUTING_KEYS.prescriptionCreated,
+        {
+          prescriptionId: row.id,
+          patientId: row.patientId,
+          doctorId: row.doctorId,
+          medication: row.medication,
+        },
+        tx,
+      );
+
+      return row;
     });
 
     return this.toPublic(prescription);

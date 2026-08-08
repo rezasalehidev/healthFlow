@@ -33,21 +33,29 @@ export class MedicalRecordsService {
     this.assertDoctorOrAdmin(actor);
     await this.requirePatient(patientId);
 
-    const record = await this.prisma.medicalRecord.create({
-      data: {
-        patientId,
-        doctorId: actor.sub,
-        title: dto.title,
-        notes: dto.notes,
-        diagnosisCode: dto.diagnosisCode,
-      },
-    });
+    const record = await this.prisma.$transaction(async (tx) => {
+      const row = await tx.medicalRecord.create({
+        data: {
+          patientId,
+          doctorId: actor.sub,
+          title: dto.title,
+          notes: dto.notes,
+          diagnosisCode: dto.diagnosisCode,
+        },
+      });
 
-    await this.events.publish(ROUTING_KEYS.medicalRecordCreated, {
-      medicalRecordId: record.id,
-      patientId: record.patientId,
-      doctorId: record.doctorId,
-      title: record.title,
+      await this.events.publish(
+        ROUTING_KEYS.medicalRecordCreated,
+        {
+          medicalRecordId: row.id,
+          patientId: row.patientId,
+          doctorId: row.doctorId,
+          title: row.title,
+        },
+        tx,
+      );
+
+      return row;
     });
 
     return this.toPublic(record);
@@ -96,20 +104,28 @@ export class MedicalRecordsService {
       );
     }
 
-    const updated = await this.prisma.medicalRecord.update({
-      where: { id },
-      data: {
-        title: dto.title,
-        notes: dto.notes,
-        diagnosisCode: dto.diagnosisCode,
-      },
-    });
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const row = await tx.medicalRecord.update({
+        where: { id },
+        data: {
+          title: dto.title,
+          notes: dto.notes,
+          diagnosisCode: dto.diagnosisCode,
+        },
+      });
 
-    await this.events.publish(ROUTING_KEYS.medicalRecordUpdated, {
-      medicalRecordId: updated.id,
-      patientId: updated.patientId,
-      doctorId: updated.doctorId,
-      title: updated.title,
+      await this.events.publish(
+        ROUTING_KEYS.medicalRecordUpdated,
+        {
+          medicalRecordId: row.id,
+          patientId: row.patientId,
+          doctorId: row.doctorId,
+          title: row.title,
+        },
+        tx,
+      );
+
+      return row;
     });
 
     return this.toPublic(updated);

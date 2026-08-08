@@ -91,25 +91,32 @@ export class AppointmentsService {
     }
 
     try {
-      const created = await this.prisma.appointment.create({
-        data: {
-          patientId: dto.patientId,
-          doctorId: dto.doctorId,
-          startsAt,
-          endsAt,
-          status: AppointmentStatus.PENDING,
-          slotKey: this.slotKey(dto.doctorId, startsAt),
-          notes: dto.notes,
-          createdBy: actor.sub,
-        },
-      });
+      const created = await this.prisma.$transaction(async (tx) => {
+        const row = await tx.appointment.create({
+          data: {
+            patientId: dto.patientId,
+            doctorId: dto.doctorId,
+            startsAt,
+            endsAt,
+            status: AppointmentStatus.PENDING,
+            slotKey: this.slotKey(dto.doctorId, startsAt),
+            notes: dto.notes,
+            createdBy: actor.sub,
+          },
+        });
 
-      await this.events.publish({
-        eventId: randomUUID(),
-        type: 'appointment.created',
-        occurredAt: new Date().toISOString(),
-        producer: 'appointment-service',
-        payload: this.eventPayload(created),
+        await this.events.publish(
+          {
+            eventId: randomUUID(),
+            type: 'appointment.created',
+            occurredAt: new Date().toISOString(),
+            producer: 'appointment-service',
+            payload: this.eventPayload(row),
+          },
+          tx,
+        );
+
+        return row;
       });
 
       return this.toPublic(created);
@@ -140,17 +147,24 @@ export class AppointmentsService {
       );
     }
 
-    const updated = await this.prisma.appointment.update({
-      where: { id },
-      data: { status: AppointmentStatus.CONFIRMED, version: { increment: 1 } },
-    });
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const row = await tx.appointment.update({
+        where: { id },
+        data: { status: AppointmentStatus.CONFIRMED, version: { increment: 1 } },
+      });
 
-    await this.events.publish({
-      eventId: randomUUID(),
-      type: 'appointment.confirmed',
-      occurredAt: new Date().toISOString(),
-      producer: 'appointment-service',
-      payload: this.eventPayload(updated),
+      await this.events.publish(
+        {
+          eventId: randomUUID(),
+          type: 'appointment.confirmed',
+          occurredAt: new Date().toISOString(),
+          producer: 'appointment-service',
+          payload: this.eventPayload(row),
+        },
+        tx,
+      );
+
+      return row;
     });
 
     return this.toPublic(updated);
@@ -169,21 +183,28 @@ export class AppointmentsService {
       );
     }
 
-    const updated = await this.prisma.appointment.update({
-      where: { id },
-      data: {
-        status: AppointmentStatus.CANCELLED,
-        slotKey: null,
-        version: { increment: 1 },
-      },
-    });
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const row = await tx.appointment.update({
+        where: { id },
+        data: {
+          status: AppointmentStatus.CANCELLED,
+          slotKey: null,
+          version: { increment: 1 },
+        },
+      });
 
-    await this.events.publish({
-      eventId: randomUUID(),
-      type: 'appointment.cancelled',
-      occurredAt: new Date().toISOString(),
-      producer: 'appointment-service',
-      payload: this.eventPayload(updated),
+      await this.events.publish(
+        {
+          eventId: randomUUID(),
+          type: 'appointment.cancelled',
+          occurredAt: new Date().toISOString(),
+          producer: 'appointment-service',
+          payload: this.eventPayload(row),
+        },
+        tx,
+      );
+
+      return row;
     });
 
     return this.toPublic(updated);
@@ -233,14 +254,29 @@ export class AppointmentsService {
         }
 
         try {
-          return await this.prisma.appointment.update({
-            where: { id },
-            data: {
-              startsAt,
-              endsAt,
-              slotKey: this.slotKey(appointment.doctorId, startsAt),
-              version: { increment: 1 },
-            },
+          return await this.prisma.$transaction(async (tx) => {
+            const row = await tx.appointment.update({
+              where: { id },
+              data: {
+                startsAt,
+                endsAt,
+                slotKey: this.slotKey(appointment.doctorId, startsAt),
+                version: { increment: 1 },
+              },
+            });
+
+            await this.events.publish(
+              {
+                eventId: randomUUID(),
+                type: 'appointment.rescheduled',
+                occurredAt: new Date().toISOString(),
+                producer: 'appointment-service',
+                payload: this.eventPayload(row),
+              },
+              tx,
+            );
+
+            return row;
           });
         } catch (error: unknown) {
           if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -260,14 +296,6 @@ export class AppointmentsService {
         'The appointment slot is being booked by another request',
       );
     }
-
-    await this.events.publish({
-      eventId: randomUUID(),
-      type: 'appointment.rescheduled',
-      occurredAt: new Date().toISOString(),
-      producer: 'appointment-service',
-      payload: this.eventPayload(outcome.result),
-    });
 
     return this.toPublic(outcome.result);
   }

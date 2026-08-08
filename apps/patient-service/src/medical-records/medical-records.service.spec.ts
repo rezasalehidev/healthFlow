@@ -26,6 +26,7 @@ describe('MedicalRecordsService', () => {
       findUnique: jest.fn(),
       update: jest.fn(),
     },
+    $transaction: jest.fn(),
   };
 
   const events = { publish: jest.fn().mockResolvedValue(undefined) };
@@ -35,9 +36,12 @@ describe('MedicalRecordsService', () => {
     jest.clearAllMocks();
     prisma.patient.findUnique.mockResolvedValue(patient);
     prisma.medicalRecord.create.mockResolvedValue(created);
+    prisma.$transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
+      fn(prisma),
+    );
   });
 
-  it('creates a medical record and publishes event', async () => {
+  it('creates a medical record and enqueues outbox event', async () => {
     const result = await service.create(
       'patient-1',
       { title: 'Checkup', notes: 'Healthy', diagnosisCode: 'Z00' },
@@ -48,6 +52,7 @@ describe('MedicalRecordsService', () => {
     expect(events.publish).toHaveBeenCalledWith(
       'medical-record.created',
       expect.objectContaining({ medicalRecordId: 'mr-1' }) as Record<string, unknown>,
+      prisma,
     );
   });
 

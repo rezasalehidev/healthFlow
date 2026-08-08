@@ -6,6 +6,7 @@ import { MessagingModule } from '@healthflow/messaging';
 import { JwtStrategy } from '../auth/jwt.strategy';
 import { RolesGuard } from '../auth/roles.guard';
 import { ClinicalEventPublisher } from '../events/clinical-event.publisher';
+import { ClinicalOutboxRelayService } from '../events/clinical-outbox-relay.service';
 import { MedicalRecordsController } from '../medical-records/medical-records.controller';
 import { MedicalRecordsService } from '../medical-records/medical-records.service';
 import { PrescriptionsController } from '../prescriptions/prescriptions.controller';
@@ -33,6 +34,7 @@ import { PatientsService } from './patients.service';
     MedicalRecordsService,
     PrescriptionsService,
     ClinicalEventPublisher,
+    ClinicalOutboxRelayService,
     JwtStrategy,
     RolesGuard,
   ],

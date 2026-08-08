@@ -12,9 +12,12 @@ describe('AppointmentsService', () => {
   const findMany = jest.fn();
   const findUnique = jest.fn();
   const update = jest.fn();
+  const outboxCreate = jest.fn().mockResolvedValue({});
 
   const prisma = {
     appointment: { create, findMany, findUnique, update },
+    outboxEvent: { create: outboxCreate },
+    $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma)),
   } as unknown as PrismaService;
 
   const withLock = jest.fn();
@@ -23,8 +26,7 @@ describe('AppointmentsService', () => {
   const checkSlot = jest.fn().mockResolvedValue({ available: true, reason: 'ok' });
   const doctorAvailability = { checkSlot } as unknown as DoctorAvailabilityClientService;
 
-  const bus = { publish: jest.fn().mockResolvedValue({}) };
-  const events = new AppointmentEventPublisher(bus as never);
+  const events = new AppointmentEventPublisher(prisma);
   const config = { get: jest.fn().mockReturnValue(10) } as unknown as ConfigService;
 
   const service = new AppointmentsService(prisma, locks, doctorAvailability, events, config);
@@ -47,6 +49,10 @@ describe('AppointmentsService', () => {
     jest.clearAllMocks();
     events.published.length = 0;
     findMany.mockResolvedValue([]);
+    outboxCreate.mockResolvedValue({});
+    (prisma.$transaction as jest.Mock).mockImplementation(
+      async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma),
+    );
     create.mockImplementation(({ data }: { data: Record<string, unknown> }) =>
       Promise.resolve({
         id: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
@@ -86,12 +92,13 @@ describe('AppointmentsService', () => {
     ).toBe(false);
   });
 
-  it('creates appointment under distributed lock and publishes event', async () => {
+  it('creates appointment under distributed lock and enqueues outbox event', async () => {
     const result = await service.create(dto, actor);
 
     expect(withLock).toHaveBeenCalled();
     expect(checkSlot).toHaveBeenCalled();
     expect(create).toHaveBeenCalled();
+    expect(outboxCreate).toHaveBeenCalled();
     expect(result.status).toBe(AppointmentStatus.PENDING);
     expect(events.published[0]?.type).toBe('appointment.created');
   });

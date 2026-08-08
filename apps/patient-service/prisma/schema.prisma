@@ -77,3 +77,31 @@ model Prescription {
   @@map("prescriptions")
   @@schema("patient")
 }
+
+enum OutboxStatus {
+  PENDING
+  PUBLISHED
+  FAILED
+
+  @@schema("patient")
+}
+
+/// Transactional outbox for clinical domain events (medical records / prescriptions).
+model OutboxEvent {
+  id            String       @id @default(uuid()) @db.Uuid
+  eventId       String       @unique @map("event_id")
+  type          String
+  routingKey    String       @map("routing_key")
+  payload       Json
+  correlationId String?      @map("correlation_id")
+  occurredAt    DateTime     @map("occurred_at")
+  status        OutboxStatus @default(PENDING)
+  attempts      Int          @default(0)
+  lastError     String?      @map("last_error")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  publishedAt   DateTime?    @map("published_at")
+
+  @@index([status, createdAt])
+  @@map("outbox_events")
+  @@schema("patient")
+}

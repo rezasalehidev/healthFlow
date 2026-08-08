@@ -25,6 +25,7 @@ describe('PrescriptionsService', () => {
       findUnique: jest.fn(),
       update: jest.fn(),
     },
+    $transaction: jest.fn(),
   };
   const events = { publish: jest.fn().mockResolvedValue(undefined) };
   const service = new PrescriptionsService(prisma as never, events as never);
@@ -33,9 +34,12 @@ describe('PrescriptionsService', () => {
     jest.clearAllMocks();
     prisma.patient.findUnique.mockResolvedValue(patient);
     prisma.prescription.create.mockResolvedValue(created);
+    prisma.$transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
+      fn(prisma),
+    );
   });
 
-  it('creates a prescription and publishes event', async () => {
+  it('creates a prescription and enqueues outbox event', async () => {
     const result = await service.create(
       'patient-1',
       { medication: 'Amoxicillin', dosage: '500mg', instructions: 'twice daily' },
@@ -46,6 +50,7 @@ describe('PrescriptionsService', () => {
     expect(events.publish).toHaveBeenCalledWith(
       'prescription.created',
       expect.objectContaining({ prescriptionId: 'rx-1' }) as Record<string, unknown>,
+      prisma,
     );
   });
 
