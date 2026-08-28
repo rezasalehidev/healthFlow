@@ -173,25 +173,6 @@ Topics covered: architecture, monorepo layout, shared libraries, security (JWT/R
 
 ---
 
-## Project phases
-
-| Phase | Topic | Status |
-|-------|-------|--------|
-| 0–1 | Monorepo + `@healthflow/common` | Done |
-| 2 | Auth service | Done |
-| 3 | API Gateway | Done |
-| 4 | Doctor + Patient + Redis cache | Done |
-| 5 | Appointments + gRPC + distributed locks | Done |
-| 6 | RabbitMQ + notifications | Done |
-| 7 | WebSocket fan-out | Done |
-| 8 | Worker (Mongo audit + reminders) | Done |
-| 9 | Medical records + prescriptions | Done |
-| 10 | GitHub Actions CI | Done |
-| 11 | Transactional outbox (appointments) | Done |
-| 12 | Transactional outbox (clinical) + learning docs | Done |
-
----
-
 ## Repository layout
 
 ```
@@ -212,9 +193,3 @@ healthflow/
 ├── docker/                   # Dockerfiles & Postgres init
 └── docker-compose.yml
 ```
-
----
-
-## License
-
-This project is provided for educational and portfolio purposes.
